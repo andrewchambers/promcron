@@ -29,11 +29,11 @@ var (
 	})
 	forwardTimeSkips = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "promcron_forward_time_skips",
-		Help: "Detected anomalies where time moved forward causing potential job skips.",
+		Help: "Detected time anomalies where time moved forward causing potential job skips.",
 	})
 	backwardTimeSkips = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "promcron_backward_time_skips",
-		Help: "Detected anomalies where time moved backward causing potential job reruns.",
+		Help: "Detected anomalies where time moved backward causing potential job duplicates.",
 	})
 	overdueCounter = promauto.NewCounterVec(
 		prometheus.CounterOpts{
@@ -128,11 +128,23 @@ func main() {
 		log.Fatalf("forcing shutdown due to signal")
 	}()
 
+
+	prevMinute := time.Now().Minute()
+	log.Printf("scheduling %d jobs", len(jobs))
+
 scheduler:
 	for {
 		now := time.Now()
 		delay := delayTillNextCheck(now)
 		expectedWakeup := now.Add(delay)
+
+		// These time checks primitive, but stand a good chance of
+		// detecting a haywire system clock.
+		if now.Minute() != prevMinute {
+			log.Printf("processing jobs seems to have taken too long, scheduled jobs may have been skipped")
+			// This actually could be either time skip, but at least we alert the admin.
+			forwardTimeSkips.Inc()
+		}
 
 		select {
 		case <-time.After(delay):
@@ -141,9 +153,10 @@ scheduler:
 		}
 
 		now = time.Now()
+		prevMinute = now.Minute()
 		durationFromExpected := now.Sub(expectedWakeup)
 
-		if durationFromExpected >= (60*time.Second - delayOvershoot) {
+		if durationFromExpected >= (30*time.Second - delayOvershoot) {
 			log.Printf("forward time jump detected, scheduled jobs may have been skipped")
 			forwardTimeSkips.Inc()
 		} else if durationFromExpected <= -delayOvershoot {

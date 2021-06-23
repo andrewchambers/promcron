@@ -2,9 +2,15 @@
 
 `promcron` is cron service which can also export prometheus metrics.
 
- Because `promcron` uses a simple and robust time keeping algorithm,
- it is not suited for thousands of jobs,
- but in exchange is able to detect time keeping anomalies which are exported as a metric.
+Because `promcron` uses a simple and robust time keeping algorithm,
+it is not suited for thousands of jobs,
+but in exchange is able to detect time keeping anomalies which are exported as a metric.
+
+How `promcron` handles some edge cases:
+
+- If a job is overdue, `promcron` logs it, but does not run it.
+- If time jumps forward more than 60 seconds, `promcron` may miss jobs
+  but attempts to log them and export time anomaly metrics.
 
 ## Example
 
