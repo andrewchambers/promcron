@@ -24,9 +24,9 @@ job2 */10 * * * * echo 'Every 10 minutes'
 job3 0-5  * * * * echo 'First 5 minutes of each hour'
 ```
 
-Run promcron like:
+Run promcron:
 ```
-$ promcron -metrics 127.0.0.1:1234 -f /etc/promcron
+$ promcron -prometheus-metrics 127.0.0.1:1234 -f /etc/promcron
 ```
 
 ## Example of exported metrics
@@ -37,7 +37,7 @@ job1 0/2 * * * * echo hello
 job2 1/2 * * * * sleep 300
 ```
 
-produces
+produces the following exported metrics:
 ```
 ...
  HELP promcron_backward_time_skips Detected anomalies where time moved backward causing potential job reruns.
