@@ -128,40 +128,33 @@ func main() {
 		log.Fatalf("forcing shutdown due to signal")
 	}()
 
-
-	prevMinute := time.Now().Minute()
 	log.Printf("scheduling %d jobs", len(jobs))
+
+	now := time.Now()
+	delay := delayTillNextCheck(now)
+	prevCheck := now.Add(delay).Add(-60 * time.Second)
 
 scheduler:
 	for {
-		now := time.Now()
-		delay := delayTillNextCheck(now)
-		expectedWakeup := now.Add(delay)
+		now = time.Now()
+		delay = delayTillNextCheck(now)
+		nextCheck := now.Add(delay)
+		actualPrevCheck := nextCheck.Add(-60 * time.Second)
 
-		// These time checks primitive, but stand a good chance of
-		// detecting a haywire system clock.
-		if now.Minute() != prevMinute {
-			log.Printf("processing jobs seems to have taken too long, scheduled jobs may have been skipped")
-			// This actually could be either time skip, but at least we alert the admin.
-			forwardTimeSkips.Inc()
+		if actualPrevCheck.Unix() != prevCheck.Unix() {
+			if actualPrevCheck.After(prevCheck) {
+				log.Printf("forward time jump detected, jobs may have been skipped")
+				forwardTimeSkips.Inc()
+			} else {
+				log.Printf("backward time jump detected, jobs may be run multiple times")
+				backwardTimeSkips.Inc()
+			}
 		}
 
 		select {
 		case <-time.After(delay):
 		case <-done:
 			break scheduler
-		}
-
-		now = time.Now()
-		prevMinute = now.Minute()
-		durationFromExpected := now.Sub(expectedWakeup)
-
-		if durationFromExpected >= (30*time.Second - delayOvershoot) {
-			log.Printf("forward time jump detected, scheduled jobs may have been skipped")
-			forwardTimeSkips.Inc()
-		} else if durationFromExpected <= -delayOvershoot {
-			log.Printf("backward time jump detected, scheduled jobs may be run multiple times")
-			backwardTimeSkips.Inc()
 		}
 
 		for _, j := range jobs {
@@ -177,6 +170,8 @@ scheduler:
 			runningJobsGauge.Inc()
 			j.Start(onJobExit)
 		}
+
+		prevCheck = nextCheck
 	}
 
 	for _, j := range jobs {
