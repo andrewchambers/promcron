@@ -40,7 +40,7 @@ job2 1/2 * * * * sleep 300
 produces the following exported metrics:
 ```
 ...
- HELP promcron_backward_time_skips Detected anomalies where time moved backward causing potential job reruns.
+# HELP promcron_backward_time_skips Detected anomalies where time moved backward causing potential job reruns.
 # TYPE promcron_backward_time_skips counter
 promcron_backward_time_skips 0
 # HELP promcron_forward_time_skips Detected anomalies where time moved forward causing potential job skips.
