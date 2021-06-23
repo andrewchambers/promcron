@@ -15,7 +15,7 @@
 #         │ ┌───────────── hour (0 - 23)
 #         │ │ ┌───────────── day of the month (1 - 31)
 #         │ │ │ ┌───────────── month (1 - 12, jan-dec)
-#         │ │ │ │ ┌───────────── day of the week (0 - 6, mon-fri) 
+#         │ │ │ │ ┌───────────── day of the week (0 - 6, mon-sun) 
 #         │ │ │ │ │
 #         │ │ │ │ │
 job-label 0 * * * * echo 'An hour has passed'
