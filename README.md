@@ -9,8 +9,10 @@ but in exchange is able to detect time keeping anomalies which are exported as a
 How `promcron` handles some edge cases:
 
 - If a job is overdue, `promcron` logs it, but does not run it.
-- If time jumps forward more than 60 seconds, `promcron` may miss jobs
+- If time jumps forward more than 30 seconds, `promcron` may miss jobs
   but attempts to log them and export time anomaly metrics.
+- If time jumps backwards more than 30 seconds, `promcron` may run jobs
+  multiple times, but attempts to log them and export time anomaly metrics.
 
 ## Example
 

@@ -65,10 +65,10 @@ var (
 	)
 )
 
-const delayOvershoot = 5 * time.Second
-
 func delayTillNextCheck(fromt time.Time) time.Duration {
-	return delayOvershoot + // Be resilient to minor backward clock adjustments.
+	// Schedule for midway in the next minute to be
+	// resilient to clock adjustments in both directions.
+	return 30 * time.Second + 
 		(time.Duration(60-fromt.Second()) * time.Second) -
 		(time.Duration(fromt.Nanosecond()%1000000000) * time.Nanosecond)
 }
