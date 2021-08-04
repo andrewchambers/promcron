@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -17,8 +18,10 @@ import (
 
 // flags
 var (
-	metricsAddress = flag.String("prometheus-metrics", "", "address:port to serve job prometheus metrics on.")
-	tab            = flag.String("f", "/etc/promcron", "'promcron' file to load and run.")
+	printSchedule    = flag.Bool("print-schedule", false, "Print the schedule for the next 24 hours then exit.")
+	printScheduleFor = flag.Duration("print-schedule-for", 0*time.Second, "Print the schedule for the specified duration then exit.")
+	metricsAddress   = flag.String("prometheus-metrics", "", "address:port to serve job prometheus metrics on.")
+	tab              = flag.String("f", "/etc/promcron", "'promcron' file to load and run.")
 )
 
 // metrics
@@ -84,6 +87,25 @@ func onJobExit(jobName string, duration time.Duration, code int) {
 	durationGauge.WithLabelValues(jobName).Set(duration.Seconds())
 }
 
+func printScheduleAndExit(jobs []*Job) {
+	duration := 24 * time.Hour
+	if *printScheduleFor != 0 {
+		duration = *printScheduleFor
+	}
+	simulatedTime := time.Now()
+	end := simulatedTime.Add(duration)
+	for end.After(simulatedTime) {
+		simulatedTime = simulatedTime.Add(delayTillNextCheck(simulatedTime))
+		for _, j := range jobs {
+			if !j.ShouldRunAt(&simulatedTime) {
+				continue
+			}
+			fmt.Printf("%s - %s\n", simulatedTime.Format("2006/01/02 15:04"), j.Name)
+		}
+	}
+	os.Exit(0)
+}
+
 func main() {
 	flag.Parse()
 
@@ -95,6 +117,10 @@ func main() {
 	jobs, err := ParseJobs(*tab, string(tabData))
 	if err != nil {
 		log.Fatalf("%s", err)
+	}
+
+	if *printSchedule || *printScheduleFor != 0 {
+		printScheduleAndExit(jobs)
 	}
 
 	// Init prometheus vectors with job names.
