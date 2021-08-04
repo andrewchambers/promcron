@@ -172,7 +172,7 @@ func ParseJobs(fname, tab string) ([]*Job, error) {
 			return fmt.Errorf("parse error %s:%d %s", fname, lno, err)
 		}
 
-		if len(l) == 0 || l[0] == '#' {
+		if strings.TrimSpace(l) == "" || l[0] == '#' {
 			continue
 		}
 
