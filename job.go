@@ -5,7 +5,6 @@ import (
 	"os/exec"
 	"sync"
 	"sync/atomic"
-	"syscall"
 	"time"
 )
 
@@ -44,7 +43,7 @@ func (j *Job) IsRunning() bool {
 	return atomic.LoadInt32(&j.running) != 0
 }
 
-type OnJobExitFunc func(string, time.Duration, int)
+type OnJobExitFunc func(string, time.Duration, *exec.Cmd, error)
 
 func (j *Job) Start(onExit OnJobExitFunc) bool {
 	j.wg.Wait()
@@ -59,17 +58,7 @@ func (j *Job) Start(onExit OnJobExitFunc) bool {
 		startTime := time.Now()
 		err := j.child.Run()
 		endTime := time.Now()
-		exitStatus := 127
-		if err != nil {
-			if exiterr, ok := err.(*exec.ExitError); ok {
-				if status, ok := exiterr.Sys().(syscall.WaitStatus); ok {
-					exitStatus = status.ExitStatus()
-				}
-			}
-		} else {
-			exitStatus = 0
-		}
-		onExit(j.Name, endTime.Sub(startTime), exitStatus)
+		onExit(j.Name, endTime.Sub(startTime), j.child, err)
 	}()
 	return true
 }

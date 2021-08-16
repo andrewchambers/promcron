@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"os/exec"
 	"os/signal"
 	"syscall"
 	"time"
@@ -26,10 +27,6 @@ var (
 
 // metrics
 var (
-	runningJobsGauge = promauto.NewGauge(prometheus.GaugeOpts{
-		Name: "promcron_running_jobs",
-		Help: "Number of jobs that are currently running.",
-	})
 	forwardTimeSkips = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "promcron_forward_time_skips",
 		Help: "Detected time anomalies where time moved forward causing potential job skips.",
@@ -61,11 +58,37 @@ var (
 	)
 	durationGauge = promauto.NewGaugeVec(
 		prometheus.GaugeOpts{
-			Name: "promcron_job_duration",
+			Name: "promcron_job_duration_seconds",
 			Help: "Time taken for the last job execution.",
 		},
 		[]string{"job"},
 	)
+	maxrssBytesGauge = promauto.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "promcron_job_maxrss_bytes",
+			Help: "Max rss of the last job execution.",
+		},
+		[]string{"job"},
+	)
+	utimeGauge = promauto.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "promcron_job_utime_seconds",
+			Help: "User cpu time used for the last job execution.",
+		},
+		[]string{"job"},
+	)
+	stimeGauge = promauto.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "promcron_job_stime_seconds",
+			Help: "System cpu time used for the last job execution.",
+		},
+		[]string{"job"},
+	)
+	runningGauge = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "promcron_job_running",
+		Help: "Whether or not the job is currently running.",
+	},
+		[]string{"job"})
 )
 
 func delayTillNextCheck(fromt time.Time) time.Duration {
@@ -76,15 +99,38 @@ func delayTillNextCheck(fromt time.Time) time.Duration {
 		(time.Duration(fromt.Nanosecond()%1000000000) * time.Nanosecond)
 }
 
-func onJobExit(jobName string, duration time.Duration, code int) {
-	log.Printf("job %s finished in %s with exit code %d", jobName, duration, code)
-	runningJobsGauge.Dec()
-	if code == 0 {
+func onJobExit(jobName string, duration time.Duration, cmd *exec.Cmd, err error) {
+
+	exitStatus := 127
+	if err != nil {
+		if exiterr, ok := err.(*exec.ExitError); ok {
+			if status, ok := exiterr.Sys().(syscall.WaitStatus); ok {
+				exitStatus = status.ExitStatus()
+			}
+		}
+	} else {
+		exitStatus = 0
+	}
+
+	log.Printf("job %s finished in %s with exit status %d", jobName, duration, exitStatus)
+
+	runningGauge.WithLabelValues(jobName).Set(0)
+
+	if exitStatus == 0 {
 		successCounter.WithLabelValues(jobName).Inc()
 	} else {
 		failureCounter.WithLabelValues(jobName).Inc()
 	}
+
 	durationGauge.WithLabelValues(jobName).Set(duration.Seconds())
+
+	if rusage, ok := cmd.ProcessState.SysUsage().(*syscall.Rusage); ok {
+		durationGauge.WithLabelValues(jobName).Set(duration.Seconds())
+		maxrssBytesGauge.WithLabelValues(jobName).Set(float64(rusage.Maxrss * 1024))
+		utimeGauge.WithLabelValues(jobName).Set(float64(rusage.Utime.Sec) + (float64(rusage.Utime.Usec) / 1000000.0))
+		stimeGauge.WithLabelValues(jobName).Set(float64(rusage.Stime.Sec) + (float64(rusage.Stime.Usec) / 1000000.0))
+	}
+
 }
 
 func printScheduleAndExit(jobs []*Job) {
@@ -129,6 +175,10 @@ func main() {
 		failureCounter.WithLabelValues(j.Name)
 		successCounter.WithLabelValues(j.Name)
 		durationGauge.WithLabelValues(j.Name)
+		maxrssBytesGauge.WithLabelValues(j.Name)
+		utimeGauge.WithLabelValues(j.Name)
+		stimeGauge.WithLabelValues(j.Name)
+		runningGauge.WithLabelValues(j.Name)
 	}
 
 	if *metricsAddress != "" {
@@ -193,7 +243,7 @@ scheduler:
 				continue
 			}
 			log.Printf("starting job %s", j.Name)
-			runningJobsGauge.Inc()
+			runningGauge.WithLabelValues(j.Name).Set(1)
 			j.Start(onJobExit)
 		}
 

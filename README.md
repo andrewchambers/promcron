@@ -48,29 +48,20 @@ job2 1/2 * * * * sleep 300
 produces the following exported metrics:
 ```
 ...
-# HELP promcron_backward_time_skips Detected anomalies where time moved backward causing potential job reruns.
-# TYPE promcron_backward_time_skips counter
-promcron_backward_time_skips 0
-# HELP promcron_forward_time_skips Detected anomalies where time moved forward causing potential job skips.
-# TYPE promcron_forward_time_skips counter
-promcron_forward_time_skips 0
-# HELP promcron_job_duration Time taken for the last job execution.
-# TYPE promcron_job_duration gauge
-promcron_job_duration{job="job1"} 0.004243458
-promcron_job_duration{job="job2"} 0
-# HELP promcron_job_failure_count Times a job has failed.
-# TYPE promcron_job_failure_count counter
+promcron_job_duration_seconds{job="job1"} 0.003607821
+promcron_job_duration_seconds{job="job2"} 300.006504244
 promcron_job_failure_count{job="job1"} 0
 promcron_job_failure_count{job="job2"} 0
-# HELP promcron_job_overdue_count Times a job did not finish before the next rescheduling.
-# TYPE promcron_job_overdue_count counter
+promcron_job_maxrss_bytes{job="job1"} 5.2236288e+07
+promcron_job_maxrss_bytes{job="job2"} 2.3601152e+07
 promcron_job_overdue_count{job="job1"} 0
-promcron_job_overdue_count{job="job2"} 1
-# HELP promcron_job_success_count Times a job has succeeded.
-# TYPE promcron_job_success_count counter
-promcron_job_success_count{job="job1"} 2
-promcron_job_success_count{job="job2"} 0
-# HELP promcron_running_jobs Number of jobs that are currently running.
-# TYPE promcron_running_jobs gauge
-promcron_running_jobs 1
+promcron_job_overdue_count{job="job2"} 2
+promcron_job_running{job="job1"} 0
+promcron_job_running{job="job2"} 1
+promcron_job_stime_seconds{job="job1"} 0.001138
+promcron_job_stime_seconds{job="job2"} 0.003096
+promcron_job_success_count{job="job1"} 5
+promcron_job_success_count{job="job2"} 1
+promcron_job_utime_seconds{job="job1"} 0.002276
+promcron_job_utime_seconds{job="job2"} 0.003096
 ```
